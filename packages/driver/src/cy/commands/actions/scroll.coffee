@@ -89,7 +89,7 @@ module.exports = (Commands, Cypress, cy, state, config) ->
       if not parentIsWin
         ## scroll the parent into view first
         ## before attemp
-        options.$parent[0].scrollIntoView()
+        options.$parent[0].scrollIntoView({inline: "center", block: "center"})
 
       scrollIntoView = ->
         new Promise (resolve, reject) =>

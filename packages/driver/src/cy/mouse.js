@@ -380,6 +380,7 @@ const create = (state, keyboard, focused) => {
 
       if (shouldMoveCursorToEndAfterMousedown($elToFocus[0])) {
         debug('moveSelectionToEnd due to click')
+        //$selection.moveSelectionToEnd($elToFocus[0].getRootNode(), { onlyIfEmptySelection: true })
         $selection.moveSelectionToEnd($elToFocus[0], { onlyIfEmptySelection: true })
       }
 

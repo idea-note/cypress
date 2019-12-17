@@ -195,6 +195,9 @@ create = (state) ->
   getFocused = ->
     { activeElement } = state("document")
 
+    while (activeElement != null && activeElement.shadowRoot != null && activeElement.shadowRoot.activeElement != null)
+      activeElement = activeElement.shadowRoot.activeElement
+
     if $dom.isFocused(activeElement)
       return $dom.wrap(activeElement)
 

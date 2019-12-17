@@ -207,7 +207,7 @@ const elOrAncestorIsFixed = function ($el) {
 }
 
 const elAtCenterPoint = function ($el) {
-  const doc = $document.getDocumentFromElement($el.get(0))
+  const doc = $document.getDocumentOrShadowRootFromElement($el.get(0))
   const elProps = $coordinates.getElementPositioning($el)
 
   const { topCenter, leftCenter } = elProps.fromElViewport

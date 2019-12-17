@@ -2,8 +2,8 @@ import Promise from 'bluebird'
 import Debug from 'debug'
 import _ from 'lodash'
 import moment from 'moment'
-import $utils from '../cypress/utils.coffee'
 import { USKeyboard } from '../cypress/UsKeyboardLayout'
+import $utils from '../cypress/utils.coffee'
 import * as $dom from '../dom'
 import * as $document from '../dom/document'
 import * as $elements from '../dom/elements'
@@ -633,7 +633,7 @@ export class Keyboard {
     debug('type:', options.chars, options)
 
     const el = options.$el.get(0)
-    const doc = $document.getDocumentFromElement(el)
+    const doc = $document.getDocumentOrShadowRootFromElement(el)
 
     let keys: string[]
 
@@ -663,12 +663,12 @@ export class Keyboard {
 
     options.onBeforeType(numKeys)
 
-    const getActiveEl = (doc: Document) => {
+    const getActiveEl = (doc: Document | ShadowRoot) => {
       if (options.force) {
         return options.$el.get(0)
       }
 
-      const activeEl = $elements.getActiveElByDocument(doc) || doc.body
+      const activeEl = $elements.getActiveElByDocument(doc) || document.body
 
       return activeEl
     }
@@ -1097,9 +1097,9 @@ export class Keyboard {
       return el
     }
 
-    const doc = $document.getDocumentFromElement(el)
+    const doc = $document.getDocumentOrShadowRootFromElement(el)
 
-    return $elements.getActiveElByDocument(doc) || doc.body
+    return $elements.getActiveElByDocument(doc) || document.body
   }
 
   performSimulatedDefault (el: HTMLElement, key: KeyDetails, options: any) {
