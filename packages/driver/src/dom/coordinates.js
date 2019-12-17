@@ -84,7 +84,7 @@ const getElementPositioning = ($el) => {
     width: rect.width,
     height: rect.height,
     fromElViewport: {
-      doc: win.document,
+      doc: el.getRootNode(),
       top: rect.top,
       left: rect.left,
       right: rect.right,

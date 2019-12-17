@@ -404,7 +404,7 @@ module.exports = function (Commands, Cypress, cy, state, config) {
             errorOnSelect: false,
           })
           .then(() => {
-            if (!options.force && $elements.getActiveElByDocument($elToClick[0].ownerDocument) === null) {
+            if (!options.force && $elements.getActiveElByDocument($elToClick[0].getRootNode()) === null) {
               const node = $dom.stringify($elToClick)
               const onFail = options._log
 

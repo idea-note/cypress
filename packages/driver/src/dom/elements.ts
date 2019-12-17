@@ -405,9 +405,10 @@ const activeElementIsDefault = (activeElement, body) => {
 
 const isFocused = (el) => {
   try {
-    const doc = $document.getDocumentFromElement(el)
+    const doc = $document.getDocumentOrShadowRootFromElement(el)
 
-    const { activeElement, body } = doc
+    const { activeElement } = doc
+    const body = document.body
 
     if (activeElementIsDefault(activeElement, body)) {
       return false
@@ -420,7 +421,7 @@ const isFocused = (el) => {
 }
 
 const isFocusedOrInFocused = (el: HTMLElement) => {
-  const doc = $document.getDocumentFromElement(el)
+  const doc = $document.getDocumentOrShadowRootFromElement(el)
 
   const { activeElement } = doc
 
@@ -439,13 +440,23 @@ const isFocusedOrInFocused = (el: HTMLElement) => {
   return false
 }
 
+const isShadowRoot = function (obj): obj is ShadowRoot {
+  if (obj == null) {
+    return false
+  }
+
+  const window = $window.getWindowByElement(obj)
+
+  return 'ShadowRoot' in window && obj instanceof (window as any).ShadowRoot
+}
+
 const isElement = function (obj): obj is HTMLElement | JQuery<HTMLElement> {
   try {
     if ($jquery.isJquery(obj)) {
       obj = obj[0]
     }
 
-    return Boolean(obj && _.isElement(obj))
+    return Boolean(obj && (_.isElement(obj) || isShadowRoot(obj)))
   } catch (error) {
     return false
   }
@@ -516,7 +527,7 @@ const isScrollOrAuto = (prop) => {
 }
 
 const isAncestor = ($el, $maybeAncestor) => {
-  return $el.parents().index($maybeAncestor) >= 0
+  return $maybeAncestor.get(0).contains($el.get(0))
 }
 
 const getFirstCommonAncestor = (el1, el2) => {
@@ -528,26 +539,47 @@ const getFirstCommonAncestor = (el1, el2) => {
       return curEl
     }
 
-    curEl = curEl.parentNode
+    curEl = getParent(curEl)
   }
 
   return curEl
 }
 
 const getAllParents = (el) => {
-  let curEl = el.parentNode
+  let curEl = getParent(el)
   const allParents: any[] = []
 
   while (curEl) {
     allParents.push(curEl)
-    curEl = curEl.parentNode
+    curEl = getParent(curEl)
   }
 
   return allParents
 }
 
+const getParent = (el) => {
+  let parent
+
+  if (isShadowRoot(el)) {
+    parent = el.host
+  } else {
+    parent = el.parentNode
+  }
+
+  // For some weird reason, checking "instanceof ShadowRoot" doesn't work in all cases. Check for "activeElement" instead
+  while (parent != null && (parent instanceof Node || 'activeElement' in parent) && 'host' in parent) {
+    parent = parent.host
+  }
+
+  if (parent === el) {
+    undefined
+  }
+
+  return parent
+}
+
 const isChild = ($el, $maybeChild) => {
-  return $el.children().index($maybeChild) >= 0
+  return $el.get(0).contains($maybeChild.get(0))
 }
 
 const isSelector = ($el: JQuery<HTMLElement>, selector) => {
@@ -573,46 +605,7 @@ const isDetached = ($el) => {
 }
 
 const isAttached = function ($el) {
-  // if we're being given window
-  // then these are automaticallyed attached
-  if ($window.isWindow($el)) {
-    // there is a code path when forcing focus and
-    // blur on the window where this check is necessary.
-    return true
-  }
-
-  // if this is a document we can simply check
-  // whether or not it has a defaultView (window).
-  // documents which are part of stale pages
-  // will have this property null'd out
-  if ($document.isDocument($el)) {
-    return $document.hasActiveWindow($el)
-  }
-
-  // normalize into an array
-  const els = [].concat($jquery.unwrap($el))
-
-  // we could be passed an empty array here
-  // which in that case it is not attached
-  if (els.length === 0) {
-    return false
-  }
-
-  // get the document from the first element
-  const doc = $document.getDocumentFromElement(els[0])
-
-  // TODO: i guess its possible each element
-  // is technically bound to a differnet document
-  // but c'mon
-  const isIn = (el) => {
-    return $.contains((doc as unknown) as Element, el)
-  }
-
-  // make sure the document is currently
-  // active (it has a window) and
-  // make sure every single element
-  // is attached to this document
-  return $document.hasActiveWindow(doc) && _.every(els, isIn)
+  return $el.get(0).isConnected
 }
 
 /**
@@ -776,12 +769,43 @@ const isScrollable = ($el) => {
   return false
 }
 
+function deepContains (el1, el2) {
+  if (el1 === el2 || el1.contains(el2)) return true
+
+  if (el1.shadowRoot != null) {
+    const children = el1.shadowRoot.children
+
+    for (const child of [el1.shadowRoot, ...(children == null ? [] : children)]) {
+      if (deepContains(child, el2)) return true
+    }
+  }
+
+  if (el1 instanceof HTMLSlotElement) {
+    const assignedNodes = el1.assignedNodes()
+
+    for (const child of (assignedNodes == null ? [] : assignedNodes)) {
+      if (deepContains(child, el2)) return true
+    }
+  }
+
+  const children = el1.children
+
+  for (const child of (children == null ? [] : children)) {
+    if (deepContains(child, el2)) return true
+  }
+
+  return false
+}
+
 const isDescendent = ($el1, $el2) => {
   if (!$el2) {
     return false
   }
 
-  return !!($el1.get(0) === $el2.get(0) || $el1.has($el2).length)
+  const el1 = $el1.get(0)
+  const el2 = $el2.get(0)
+
+  return el1 === el2 || deepContains(el1, el2)
 }
 
 const findParent = (el, fn) => {
@@ -796,12 +820,12 @@ const findParent = (el, fn) => {
       return retEl
     }
 
-    const nextEl = curEl.parentElement
+    const nextEl = getParent(curEl)
 
     return recurse(nextEl, curEl)
   }
 
-  return recurse(el.parentElement, el) || el
+  return recurse(getParent(el), el) || el
 }
 
 // in order to simulate actual user behavior we need to do the following:
@@ -814,7 +838,7 @@ const getFirstFocusableEl = ($el: JQuery<HTMLElement>) => {
     return $el
   }
 
-  const parent = $el.parent()
+  const parent = $(getParent($el.get(0)))
 
   // if we have no parent then just return
   // the window since that can receive focus
@@ -826,8 +850,12 @@ const getFirstFocusableEl = ($el: JQuery<HTMLElement>) => {
 
   return getFirstFocusableEl($el.parent())
 }
-const getActiveElByDocument = (doc: Document): HTMLElement | null => {
-  const activeElement = getNativeProp(doc, 'activeElement')
+const getActiveElByDocument = (doc: Document | ShadowRoot): HTMLElement | null => {
+  let activeElement = doc.activeElement
+
+  while (activeElement != null && activeElement.shadowRoot != null && activeElement.shadowRoot.activeElement != null) {
+    activeElement = activeElement.shadowRoot.activeElement
+  }
 
   if (isFocused(activeElement)) {
     return activeElement as HTMLElement
@@ -1107,4 +1135,5 @@ export {
   getFirstFixedOrStickyPositionParent,
   getFirstStickyPositionParent,
   getFirstScrollableParent,
+  getParent,
 }

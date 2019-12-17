@@ -36,7 +36,7 @@ const _getSelectionBoundsFromInput = function (el) {
   }
 }
 
-const _getSelectionRange = (doc: Document) => {
+const _getSelectionRange = (doc: Document | ShadowRoot) => {
   const sel = doc.getSelection()
 
   // selection has at least one range (most always 1; only 0 at page load)
@@ -45,11 +45,11 @@ const _getSelectionRange = (doc: Document) => {
     return sel.getRangeAt(0)
   }
 
-  return doc.createRange()
+  return 'createRange' in doc ? doc.createRange() : document.createRange()
 }
 
 const _getSelectionBoundsFromContentEditable = function (el) {
-  const doc = $document.getDocumentFromElement(el)
+  const doc = $document.getDocumentOrShadowRootFromElement(el)
   const range = _getSelectionRange(doc)
   const hostContenteditable = getHostContenteditable(range.commonAncestorContainer)
 
@@ -68,7 +68,7 @@ const _getSelectionBoundsFromContentEditable = function (el) {
 
 // TODO get ACTUAL caret position in contenteditable, not line
 const _replaceSelectionContentsContentEditable = function (el, text) {
-  const doc = $document.getDocumentFromElement(el)
+  const doc = $document.getDocumentOrShadowRootFromElement(el)
 
   // NOTE: insertText will also handle '\n', and render newlines
   $elements.callNativeMethod(doc, 'execCommand', 'insertText', true, text)
@@ -126,8 +126,8 @@ const _hasContenteditableAttr = (el) => {
 const getHostContenteditable = function (el) {
   let curEl = el
 
-  while (curEl.parentElement && !_hasContenteditableAttr(curEl)) {
-    curEl = curEl.parentElement
+  while ($elements.getParent(curEl) && !_hasContenteditableAttr(curEl)) {
+    curEl = $elements.getParent(curEl)
   }
 
   // if there's no host contenteditable, we must be in designmode
@@ -140,14 +140,14 @@ const getHostContenteditable = function (el) {
 }
 
 const _getSelectionByEl = function (el) {
-  const doc = $document.getDocumentFromElement(el)
+  const doc = $document.getDocumentOrShadowRootFromElement(el)
 
   return doc.getSelection()!
 }
 
 const deleteSelectionContents = function (el) {
   if ($elements.isContentEditable(el)) {
-    const doc = $document.getDocumentFromElement(el)
+    const doc = $document.getDocumentOrShadowRootFromElement(el)
 
     $elements.callNativeMethod(doc, 'execCommand', 'delete', false, null)
 
@@ -426,7 +426,7 @@ const selectAll = function (el: HTMLElement) {
   }
 
   if ($elements.isContentEditable(el)) {
-    const doc = $document.getDocumentFromElement(el)
+    const doc = $document.getDocumentOrShadowRootFromElement(el)
 
     return $elements.callNativeMethod(doc, 'execCommand', 'selectAll', false, null)
   }
@@ -465,7 +465,7 @@ const _moveSelectionTo = function (toStart: boolean, el: HTMLElement, options = 
     onlyIfEmptySelection: false,
   })
 
-  const doc = $document.getDocumentFromElement(el)
+  const doc = $document.getDocumentOrShadowRootFromElement(el)
 
   if ($elements.isInput(el) || $elements.isTextarea(el)) {
     if (opts.onlyIfEmptySelection) {

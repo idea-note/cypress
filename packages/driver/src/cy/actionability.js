@@ -51,7 +51,7 @@ const ensureElIsNotCovered = function (cy, win, $el, fromElViewport, options, lo
     // on the desired x/y normalized coordinations
     let elAtCoords
 
-    elAtCoords = $dom.getElementAtPointFromViewport(win.document, fromElViewport.x, fromElViewport.y)
+    elAtCoords = $dom.getElementAtPointFromViewport($el.get(0).getRootNode(), fromElViewport.x, fromElViewport.y)
 
     if (elAtCoords) {
       return $elAtCoords = $dom.wrap(elAtCoords)
